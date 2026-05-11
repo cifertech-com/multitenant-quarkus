@@ -23,8 +23,8 @@ Add the following dependency in the `pom.xml` file of your consumer Quarkus micr
 ```xml
 <dependency>
     <groupId>io.github.yacson3287</groupId>
-    <artifactId>mutitenant-quarkus-ct</artifactId>
-    <version>1.0-SNAPSHOT</version> <!-- Replace with the final version -->
+    <artifactId>multitenant-quarkus-ct</artifactId>
+    <version>1.0.0</version>
 </dependency>
 ```
 
@@ -72,7 +72,7 @@ The library will look for tenant migrations in the default path: `src/main/resou
 
 ### 1. Routing requests to a specific Tenant
 
-The library uses the `MutitenantContext` class (Request Scoped) to keep track of which database and tenant schema to point to during an HTTP request. Typically, you will want to set this up in a Filter or Interceptor that reads a JWT token or an HTTP Header to extract the tenant's name.
+The library uses the `MultitenantContext` class (Request Scoped) to keep track of which database and tenant schema to point to during an HTTP request. Typically, you will want to set this up in a Filter or Interceptor that reads a JWT token or an HTTP Header to extract the tenant's name.
 
 **Example using a JAX-RS Filter:**
 
@@ -97,8 +97,8 @@ public class TenantFilter implements ContainerRequestFilter {
 
         // Assign the context to the current request
         if (dbName != null && tenantName != null) {
-            mutitenantContext.setDataSource(dbName);
-            mutitenantContext.setTenant(tenantName);
+            multitenantContext.setDataSource(dbName);
+            multitenantContext.setTenant(tenantName);
         }
     }
 }
@@ -134,7 +134,13 @@ public class TenantController {
 
 ## Internal Library Architecture
 
-- **`MutitenantContext`**: Temporarily stores (RequestScoped) which database and schema we are currently working on per request.
-- **`CustomTenantResolver`**: Extracts the information from `MutitenantContext` and informs Hibernate that the tenant identifier follows the `dbName|tenantSchema` format.
+- **`MultitenantContext`**: Temporarily stores (RequestScoped) which database and schema we are currently working on per request.
+- **`CustomTenantResolver`**: Extracts the information from `MultitenantContext` and informs Hibernate that the tenant identifier follows the `dbName|tenantSchema` format.
 - **`CustomTenantConnectionResolver`**: Hibernate invokes this resolver when it needs a connection. The library extracts the `dbName` part, looks up the correct Agroal Data Source, gets a connection, and uses `conn.setSchema(tenantSchema)` to route the PostgreSQL context to the correct client.
 - **`TenantListener`**: A startup event that uses `information_schema.schemata` to find previously created schemas and executes `flyway.migrate()` to ensure the database is always updated against new software versions.
+
+---
+
+## License
+
+This project is licensed under the Apache License, Version 2.0. See the `LICENSE` file for more details.
