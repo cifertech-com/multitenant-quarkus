@@ -1,0 +1,78 @@
+package com.cifertech.multitenant.resolver;
+
+import com.cifertech.exceptionhandler.exceptions._5xx.InternalServerError;
+import com.cifertech.multitenant.services.MultitenantContext;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class CustomTenantResolverTest {
+
+    @Mock
+    MultitenantContext multitenantContext;
+
+    @InjectMocks
+    CustomTenantResolver customTenantResolver;
+
+    @Test
+    void testGetDefaultTenantId() {
+        String defaultTenant = customTenantResolver.getDefaultTenantId();
+        assertEquals("default_db|public", defaultTenant);
+    }
+
+    @Test
+    void testResolveTenantId_Success() {
+        when(multitenantContext.getDataSource()).thenReturn("my-db_1!");
+        when(multitenantContext.getTenant()).thenReturn("My-Tenant_A");
+
+        String tenantId = customTenantResolver.resolveTenantId();
+
+        // The method lowercases and replaces non [a-z0-9_] with _
+        assertEquals("my_db_1_|my_tenant_a", tenantId);
+    }
+
+    @Test
+    void testResolveTenantId_NullDataSource() {
+        when(multitenantContext.getDataSource()).thenReturn(null);
+
+        assertThrows(InternalServerError.class, () -> {
+            customTenantResolver.resolveTenantId();
+        });
+    }
+
+    @Test
+    void testResolveTenantId_BlankDataSource() {
+        when(multitenantContext.getDataSource()).thenReturn("   ");
+
+        assertThrows(InternalServerError.class, () -> {
+            customTenantResolver.resolveTenantId();
+        });
+    }
+
+    @Test
+    void testResolveTenantId_NullTenant() {
+        when(multitenantContext.getDataSource()).thenReturn("valid_db");
+        when(multitenantContext.getTenant()).thenReturn(null);
+
+        assertThrows(InternalServerError.class, () -> {
+            customTenantResolver.resolveTenantId();
+        });
+    }
+
+    @Test
+    void testResolveTenantId_BlankTenant() {
+        when(multitenantContext.getDataSource()).thenReturn("valid_db");
+        when(multitenantContext.getTenant()).thenReturn("   ");
+
+        assertThrows(InternalServerError.class, () -> {
+            customTenantResolver.resolveTenantId();
+        });
+    }
+}

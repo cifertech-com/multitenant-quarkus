@@ -1,0 +1,133 @@
+package com.cifertech.multitenant.listener;
+
+import com.cifertech.exceptionhandler.exceptions._5xx.InternalServerError;
+import io.agroal.api.AgroalDataSource;
+import io.quarkus.agroal.DataSource;
+import io.quarkus.runtime.StartupEvent;
+import jakarta.enterprise.inject.Instance;
+import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.configuration.FluentConfiguration;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.Arrays;
+import java.util.Collections;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class TenantListenerTest {
+
+    @Mock
+    Instance<AgroalDataSource> dataSources;
+
+    @Mock
+    Instance<AgroalDataSource> selectedDataSourceInstance;
+
+    @Mock
+    AgroalDataSource mockDataSource;
+
+    @Mock
+    Connection mockConnection;
+
+    @Mock
+    Statement mockStatement;
+
+    @Mock
+    ResultSet mockResultSet;
+
+    @Mock
+    StartupEvent mockStartupEvent;
+
+    @InjectMocks
+    TenantListener tenantListener;
+
+    @BeforeEach
+    void setUp() {
+    }
+
+    @Test
+    void testOnStart_Success() throws SQLException {
+        // Arrange
+        tenantListener.tenantDatabases = Arrays.asList("db1");
+
+        when(dataSources.select(any(DataSource.DataSourceLiteral.class))).thenReturn(selectedDataSourceInstance);
+        when(selectedDataSourceInstance.isUnsatisfied()).thenReturn(false);
+        when(selectedDataSourceInstance.get()).thenReturn(mockDataSource);
+        when(mockDataSource.getConnection()).thenReturn(mockConnection);
+        when(mockConnection.createStatement()).thenReturn(mockStatement);
+        when(mockStatement.executeQuery(anyString())).thenReturn(mockResultSet);
+
+        // Simulate returning two schemas: 'tenant_a' and 'tenant_b'
+        when(mockResultSet.next()).thenReturn(true, true, false);
+        when(mockResultSet.getString("schema_name")).thenReturn("tenant_a", "tenant_b");
+
+        // Mock static Flyway
+        try (MockedStatic<Flyway> flywayMockedStatic = mockStatic(Flyway.class)) {
+            FluentConfiguration mockFluentConfig = mock(FluentConfiguration.class);
+            Flyway mockFlyway = mock(Flyway.class);
+
+            flywayMockedStatic.when(Flyway::configure).thenReturn(mockFluentConfig);
+            when(mockFluentConfig.dataSource(mockDataSource)).thenReturn(mockFluentConfig);
+            // It should be called for both schemas
+            when(mockFluentConfig.schemas(anyString())).thenReturn(mockFluentConfig);
+            when(mockFluentConfig.locations("classpath:db/migration")).thenReturn(mockFluentConfig);
+            when(mockFluentConfig.load()).thenReturn(mockFlyway);
+
+            // Act
+            tenantListener.onStart(mockStartupEvent);
+
+            // Assert
+            verify(mockFluentConfig).schemas("tenant_a");
+            verify(mockFluentConfig).schemas("tenant_b");
+            verify(mockFlyway, times(2)).migrate();
+        }
+    }
+
+    @Test
+    void testOnStart_NoDatabasesConfigured() {
+        // Arrange
+        tenantListener.tenantDatabases = Collections.emptyList();
+
+        // Act & Assert
+        assertThrows(InternalServerError.class, () -> {
+            tenantListener.onStart(mockStartupEvent);
+        });
+    }
+
+    @Test
+    void testOnStart_SQLExceptionWhenFetchingSchemas() throws SQLException {
+        // Arrange
+        tenantListener.tenantDatabases = Arrays.asList("db1");
+
+        when(dataSources.select(any(DataSource.DataSourceLiteral.class))).thenReturn(selectedDataSourceInstance);
+        when(selectedDataSourceInstance.isUnsatisfied()).thenReturn(false);
+        when(selectedDataSourceInstance.get()).thenReturn(mockDataSource);
+        when(mockDataSource.getConnection()).thenReturn(mockConnection);
+        when(mockConnection.createStatement()).thenReturn(mockStatement);
+        when(mockStatement.executeQuery(anyString())).thenThrow(new SQLException("Query Failed"));
+
+        // Act & Assert
+        // In the listener, the exception is caught and logged, or rethrown?
+        // Let's check TenantListener.java code. 
+        // Inside getAllTenantSchemas it catches SQLException and throws InternalServerError.
+        // Inside migrateAllTenantsInAllDatabases, the whole block is inside a try-catch Exception and logged, so it does not propagate!
+        // Wait, if it doesn't propagate, we just verify it doesn't throw out of onStart.
+        tenantListener.onStart(mockStartupEvent);
+        
+        // Ensure no exception is thrown out of onStart since it is caught in the loop
+        verify(mockStatement, times(1)).executeQuery(anyString());
+    }
+}
