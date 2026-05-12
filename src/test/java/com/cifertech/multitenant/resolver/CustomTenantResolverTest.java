@@ -36,8 +36,19 @@ class CustomTenantResolverTest {
     @InjectMocks
     CustomTenantResolver customTenantResolver;
 
+    private void setPrivateField(Object target, String fieldName, Object value) {
+        try {
+            java.lang.reflect.Field field = target.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true);
+            field.set(target, value);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     @Test
     void testGetDefaultTenantId() {
+        setPrivateField(customTenantResolver, "tenantDatabases", java.util.List.of("default_db"));
         String defaultTenant = customTenantResolver.getDefaultTenantId();
         assertEquals("default_db|public", defaultTenant);
     }

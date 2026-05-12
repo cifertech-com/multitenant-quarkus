@@ -24,7 +24,7 @@ Add the following dependency in the `pom.xml` file of your consumer Quarkus micr
 <dependency>
     <groupId>io.github.yacson3287</groupId>
     <artifactId>multitenant-quarkus-ct</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
 </dependency>
 ```
 

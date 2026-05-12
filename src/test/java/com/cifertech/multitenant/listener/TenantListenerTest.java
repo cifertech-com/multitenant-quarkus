@@ -73,10 +73,20 @@ class TenantListenerTest {
     void setUp() {
     }
 
+    private void setPrivateField(Object target, String fieldName, Object value) {
+        try {
+            java.lang.reflect.Field field = target.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true);
+            field.set(target, value);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     @Test
     void testOnStart_Success() throws SQLException {
         // Arrange
-        tenantListener.tenantDatabases = Arrays.asList("db1");
+        setPrivateField(tenantListener, "tenantDatabases", Arrays.asList("db1"));
 
         when(dataSources.select(any(DataSource.DataSourceLiteral.class))).thenReturn(selectedDataSourceInstance);
         when(selectedDataSourceInstance.isUnsatisfied()).thenReturn(false);
@@ -114,7 +124,7 @@ class TenantListenerTest {
     @Test
     void testOnStart_NoDatabasesConfigured() {
         // Arrange
-        tenantListener.tenantDatabases = Collections.emptyList();
+        setPrivateField(tenantListener, "tenantDatabases", Collections.emptyList());
 
         // Act & Assert
         assertThrows(InternalServerError.class, () -> {
@@ -125,7 +135,7 @@ class TenantListenerTest {
     @Test
     void testOnStart_SQLExceptionWhenFetchingSchemas() throws SQLException {
         // Arrange
-        tenantListener.tenantDatabases = Arrays.asList("db1");
+        setPrivateField(tenantListener, "tenantDatabases", Arrays.asList("db1"));
 
         when(dataSources.select(any(DataSource.DataSourceLiteral.class))).thenReturn(selectedDataSourceInstance);
         when(selectedDataSourceInstance.isUnsatisfied()).thenReturn(false);

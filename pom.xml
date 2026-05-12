@@ -24,7 +24,7 @@
 
     <groupId>io.github.yacson3287</groupId>
     <artifactId>multitenant-quarkus-ct</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <packaging>jar</packaging>
 
     <name>MultitenantQuarkusCT</name>

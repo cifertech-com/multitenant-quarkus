@@ -41,10 +41,10 @@ public class TenantListener {
 
     @Inject
     @Any
-    Instance<AgroalDataSource> dataSources;
+    private Instance<AgroalDataSource> dataSources;
 
     @ConfigProperty(name = "cifertech.multitenant.databases")
-    List<String> tenantDatabases;
+    private List<String> tenantDatabases;
 
 
     /**
