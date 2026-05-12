@@ -21,20 +21,25 @@ import io.quarkus.hibernate.orm.PersistenceUnitExtension;
 import io.quarkus.hibernate.orm.runtime.tenant.TenantResolver;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+
+import java.util.List;
 
 @PersistenceUnitExtension
 @RequestScoped
 public class CustomTenantResolver implements TenantResolver {
 
-    private static final String DEFAULT_TENANT = "default_db";
-    private static final String DEFAULT_TENANT_ID = DEFAULT_TENANT + "|public";
+    private static final String DEFAULT_SCHEMA = "|public";
 
     @Inject
     private MultitenantContext multitenantContext;
 
+    @ConfigProperty(name = "cifertech.multitenant.databases")
+    private List<String> tenantDatabases;
+
     @Override
     public String getDefaultTenantId() {
-        return DEFAULT_TENANT_ID;
+        return tenantDatabases.getFirst() + DEFAULT_SCHEMA;
     }
 
     @Override
